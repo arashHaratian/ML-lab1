@@ -2,14 +2,190 @@
 title: "Lab1- Group A 13"
 author: "Arash Haratian"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+    html_document:
+        toc: yes
+        toc_float: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Attaching Packages
+
+```{r}
+library(tidyverse)
+library(kknn)
+```
+
+
+
 ## Assignment 1
+
+### 1) Importing And Spliting The Data
+
+
+```{r}
+optdigits <- read.csv("./dataset/optdigits.csv", header = FALSE)
+
+optdigits <- optdigits %>% 
+  mutate(y = as.factor(V65)) %>% 
+  select(!V65)
+
+n <- nrow(optdigits)
+set.seed(12345)
+train_idx <- sample(seq_len(n), floor(n * 0.5))
+train_data <- optdigits[train_idx, ]
+
+remainder_idx <- setdiff(seq_len(n), train_idx)
+
+set.seed(12345)
+valid_idx <- sample(remainder_idx, floor(n * 0.25))
+valid_data <- optdigits[valid_idx, ]
+
+test_idx <- setdiff(remainder_idx, valid_idx)
+test_data <- optdigits[test_idx, ]
+```
+
+### 2) Training the 30-NN
+
+```{r, collapse=TRUE}
+knn_model_train <- kknn(y~., train = train_data, test = train_data, k = 30, kernel = "rectangular")
+g_hat_train <-knn_model_train$fitted.values
+cm_train <- table(train_data$y, g_hat_train)
+cat("\nConfusion matrix for train dataset\n\n")
+print(cm_train)
+error_train <- 1 - (sum(diag(cm_train)) / length(g_hat_train))
+
+```
+
+```{r, collapse=TRUE}
+knn_model_test <- kknn(y~., train = train_data, test = test_data, k = 30, kernel = "rectangular")
+g_hat_test <- knn_model_test$fitted.values
+cm_test <- table(test_data$y, g_hat_test)
+cat("\nConfusion matrix for test dataset\n\n")
+print(cm_test)
+error_test <- 1 - (sum(diag(cm_test)) / length(g_hat_test))
+```
+
+As it is evidenced in the confusion matrix for train dataset, 17 observations with label `9` misclassified. Also classes `1`, `4`, and `8`, each has 16 observations that are misclassified. For instance, 10 of the observations from class `8` has classified as class `1`.
+
+On the other hand, class `4` has the most number of misclassifications (15 in overall). Moreover, Classes `5` and `8` have the most number of misclassifications after class `4` (10 and 8 respectively). 
+
+Only one `0` is misclassified in test data while there is no misclassification for class `0` in train dataset.
+
+
+
+The misclassification error for the train dataset is `r error_train * 100` percent whereas the misclassification error for the test dataset is `r error_test * 100` percent`. The model is biased on the training dataset as it has a very low error rate on train dataset compare to test dataset.
+
+
+
+
+
+### 3) Plotting 5 Different Observations
+
+```{r}
+prob_g8 <- predict(knn_model_train, type = "prob")
+prob_g8 <- prob_g8[, "8"]
+observations <- train_data %>%
+  mutate("prob" = prob_g8) %>%
+  filter(y == "8") %>%
+  arrange(prob) %>%
+  slice(
+    c(1:3, length(y) - 1 , length(y))
+  )
+
+for(i in 1:5){
+  fig_matrix <- matrix(as.numeric(observations[i, 1:64]), nrow = 8, byrow = T)
+  fig_title <- paste("Probability =", round(observations[i, "prob"]* 100, 4), "%")
+  heatmap(fig_matrix, Colv = NA, Rowv = NA, col = paste0("gray", 1:99), main = fig_title) 
+}
+
+
+```
+The last two plots are clearly resemble number 8, but the first three plots are barely similar to an 8. These first two plots are hard to classify visually since the top and the bottom circles of the 8 figure are blurred out.
+
+### 4) Best Value of K
+
+```{r}
+results <- map(1:30, ~{
+  model <- kknn(y~., train = train_data, test = train_data, k = .x, kernel = "rectangular")
+  train_sum <- sum(diag(table(train_data$y, model$fitted.values)))
+  model <- kknn(y~., train = train_data, test = valid_data, k = .x, kernel = "rectangular")
+  valid_sum <- sum(diag(table(valid_data$y, model$fitted.values)))
+  c(train_sum, valid_sum)
+})
+results <- as.data.frame(results)
+names(results) <- 1:30
+
+lengths <- c(nrow(train_data), nrow(valid_data))
+errors <- (lengths - results) /lengths * 100
+
+plot(t(errors)[, 1], type = "b", col = "blue",
+     ylim = c(0, 6),
+     xlab = "Vlaue of K",
+     ylab = "Misclassification Error")
+points(t(errors)[, 2], type = "b", col = "red")
+legend(0, 5.5, legend=c("train", "validation"),
+       col=c("blue", "red"), lty=1, cex=0.8)
+```
+
+By decreasing the value of `k`, the model predicts the train dataset more accurately than validation dataset (due to overfitting), while the error rate of the validation data first decrease but then it increases slightly (around `k = 3` to `k = 1`).
+
+The best value of hyperparameter `k` is `r which.min(t(errors)[,2])`.
+
+```{r}
+best_k <- which.min(t(errors)[,2])
+knn_model_test <- kknn(y~., train = train_data, test = test_data, k = best_k, kernel = "rectangular")
+g_hat_test <- knn_model_test$fitted.values
+cm_test <- table(test_data$y, g_hat_test)
+cat("\nConfusion matrix for test dataset\n\n")
+print(cm_test)
+error_test <- 1 - (sum(diag(cm_test)) / length(g_hat_test))
+```
+
+The misclassification error for test dataset is `r round(error_test * 100, 4)`% while for validation  and train dataset is `r t(errors)[3,2]`% and `r t(errors)[3,1]`% respectively. The error for the test dataset is colse to the one for the validation dataset which is a good sign (it means that model will have predict new data points with high accuracy as well). However, misclassification error for train dataset is smaller which means that the model has overfitted on the train dataset.
+
+
+### 5) Best Value of K and Cross Entropy
+
+First we define the cross entropy as a function in R:
+
+```{r}
+cross_entropy <- function(y, prob){
+  one_hot <- model.matrix(~ 0 + y)
+  result <- sum(-one_hot * log(prob +  1e-15)) 
+  return(result / length(y))
+}
+```
+
+
+```{r}
+results <- map(1:30, ~{
+  model <- kknn(y~., train = train_data, test = train_data, k = .x, kernel = "rectangular")
+  ce_train <- cross_entropy(train_data$y, model$prob)
+  model <- kknn(y~., train = train_data, test = valid_data, k = .x, kernel = "rectangular")
+  ce_valid <- cross_entropy(valid_data$y, model$prob)
+  c(ce_train, ce_valid)
+})
+results <- as.data.frame(results)
+names(results) <- 1:30
+
+best_k <- which.min(t(results)[, 2])
+ce_lowest <- t(results)[best_k, 2]
+
+plot(t(results)[, 1], type = "b", col = "blue",
+     ylim = c(0, 1),
+     xlab = "Vlaue of K",
+     ylab = "Misclassification Error")
+points(t(results)[, 2], type = "b", col = "red")
+abline(v = 6, h = ce_lowest, lty = 2)
+legend(25, 1, legend=c("train", "validation"),
+       col=c("blue", "red"), lty=1, cex=0.8)
+```
+
+---
 
 ## Assignment 2
 
