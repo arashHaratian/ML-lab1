@@ -13,10 +13,14 @@ colnames(diabetes_data) <- c("number_of_times_pregnant",
                              "age",
                              "diabetes")
 #=====EX.1=====
-diabetes_data <- diabetes_data
-diabetes_data$diabetes <- as.factor(diabetes_data$diabetes)
+diabetes_data$diabetes <- as.factor(ifelse(diabetes_data$diabetes == 1, "Yes", "No"))
+
+# diabetes_data$diabetes <- factor(diabetes_data$diabetes,levels=c("0","1"),labels=c("No","Yes"))
+#,levels=c("0",1),labels=c("No","Yes")
 ggplot(diabetes_data, aes(x=age, y=plasma_glucose_concentration,color=diabetes)) +
-    geom_point() + scale_color_manual(values=c("#000000", "#ff0000")) 
+    geom_point() + 
+    scale_color_manual(values=c("#000000", "#ff0000")) +
+    labs(title="Assigment 3 Question 1, the original data")
 
 #=====EX.2=====
 
@@ -26,33 +30,44 @@ model <- glm( diabetes ~plasma_glucose_concentration + age , data = diabetes_dat
 summary(model)$coef
 #p = exp(-5.89785793 +  0.03558250*plasma_glucose_concentration +0.02450157*age)/ [1 + exp(-5.89785793 +0.03558250*plasma_glucose_concentration +0.02450157*age)]
 diabetes_data$probabilities <- model %>% predict(diabetes_data, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
-diabetes_data$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data$probabilities > 0.5, "1", "0"))
+diabetes_data$predpicted_classes_0.5 <- as.factor(ifelse(diabetes_data$probabilities > 0.5, "Yes", "No"))
 
-ggplot(diabetes_data) +
-  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
-  scale_color_manual(values=c("#000000", "#ff0000"))+
+plot_assigment3_q2<- ggplot(diabetes_data) +
+  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predpicted_classes_0.5)) +
+  scale_color_manual(values=c("#000000", "#ff0000"))+ 
   labs(title="Assigment 3 Question 2, r=0.5")
+plot_assigment3_q2
+
 
 missclass=function(X,X1){
   n=length(X)
   return(1-sum(diag(table(X,X1)))/n)
 }
-misscalssification <- missclass(diabetes_data$diabetes,diabetes_data$predicted_classes_0.5)
-1-mean(diabetes_data$predicted_classes_0.5 == diabetes_data$diabetes)
+misscalssification <- missclass(diabetes_data$diabetes,diabetes_data$predpicted_classes_0.5)
+1-mean(diabetes_data$predpicted_classes_0.5 == diabetes_data$diabetes)
 cat("The misscalssification is",misscalssification)
 
 
 #====EX.3=====
+inverse_logit <- function(threshold){ #To correct the intercept on the plot
+  return(-log((1-threshold)/threshold))
+  
+}
 
-slope <- coef(model)[3]/(-coef(model)[2])
-intercept <- coef(model)[1]/(-coef(model)[2])
-ggplot(diabetes_data) +
+decision_boundary <- function(a, b, c, ...){ #function to plot decision boundary
+  my_slope <- -a / b
+  my_intercept <- -c / b
+  geom_abline(slope = my_slope,
+              intercept = my_intercept, ...)
+}
+
+plot_assigment3_q3 <- ggplot(diabetes_data) +
   geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
   scale_color_manual(values=c("#000000", "#ff0000"))+
   labs(title="Assigment 3 Question 3, r=0.5, with decision boundary")+
-  geom_contour(aes(x=age, y=plasma_glucose_concentration,z = as.numeric(predicted_classes_0.5 == "0")))+
-  geom_abline(intercept=intercept, slope=slope)
-
+  decision_boundary(model$coefficients[3],model$coefficients[2], 
+                    model$coefficients[1]-inverse_logit(0.5)) 
+plot_assigment3_q3
 
 # plot(1, xlim = c(20, 80),ylim = c(0,200));abline(slope, coef(model)[1])
 plot(diabetes_data$age, diabetes_data$plasma_glucose_concentration, col = diabetes_data$predicted_classes_0.5)
@@ -64,11 +79,15 @@ abline(intercept, slope)
   #===== r=0.2 =====
   diabetes_data$predicted_classes_0.2 <- as.factor(ifelse(diabetes_data$probabilities > 0.2, "1", "0"))
  
- ggplot(diabetes_data) +
+plot_assigment3_q4_r0.2<- ggplot(diabetes_data) +
     geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.2)) +
     scale_color_manual(values=c("#000000", "#ff0000"))+
-    labs(title="Assigment 3 Question 4, r=0.2, with decision boundary")
+    labs(title="Assigment 3 Question 4, r=0.2, with decision boundary")+
+  decision_boundary(model$coefficients[3],model$coefficients[2],
+                    model$coefficients[1]-inverse_logit(0.2)) 
   
+plot_assigment3_q4_r0.2
+
   #===== r=0.8 =====
   diabetes_data$predicted_classes_0.8 <- as.factor(ifelse(diabetes_data$probabilities > 0.8, "1", "0"))
   
@@ -76,7 +95,9 @@ abline(intercept, slope)
     geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.8)) +
     scale_color_manual(values=c("#000000", "#ff0000"))+
     geom_smooth(aes(x=age, y=plasma_glucose_concentration))+
-    labs(title="Assigment 3 Question 4, r=0.8, with decision boundary")
+    labs(title="Assigment 3 Question 4, r=0.8, with decision boundary")+
+    decision_boundary(model$coefficients[3],model$coefficients[2],
+                       model$coefficients[1]-inverse_logit(0.8))
 
  
 #=====EX.5=====
@@ -102,6 +123,10 @@ abline(intercept, slope)
            model_2$coefficients[2],
            model_2$coefficients[1]-inverse_logit(0.5), linetype = "solid", col = "blue") 
 
+ 
+ 
+ 
+ 
  
 #==== Fixing decision boundary=====
   ggplot(diabetes_data) +
