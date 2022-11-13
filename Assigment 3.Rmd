@@ -1,0 +1,181 @@
+---
+title: "Assigment 3"
+author: "Yi Hung Chen"
+date: "2022-11-12"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+\newpage
+# Assignment 3
+First, the data from the Excel file *pima-indians-diabetes* will be imported and the column names are changed
+```{r, include=FALSE}
+diabetes_data <- read.csv("D:/下載/pima-indians-diabetes.csv")
+colnames(diabetes_data) <- c("number_of_times_pregnant",
+                             "plasma_glucose_concentration", 
+                             "blood_pressure",
+                             "triceps_skinfold_thickness",
+                             "serum_insulin",
+                             "bmi",
+                             "diabetes_pedigree_function",
+                             "age",
+                             "diabetes")
+library(ggplot2)
+```
+### 3.1 Make a scatterplot showing a Plasma glucose concentration on Age where observations are colored by Diabetes levels.
+
+First, create "diabetes_data_1" so the original data wont be affect
+
+Second, use "as.factor" so 1 = has diabetes 0= no diabetes
+```{r}
+diabetes_data_1 <- diabetes_data
+diabetes_data_1$diabetes <- as.factor(ifelse(diabetes_data_1$diabetes == 1, "Yes", "No"))
+
+plot_assigment3_q1 <- ggplot(diabetes_data_1, aes(x=age, y=plasma_glucose_concentration,color=diabetes)) +
+    geom_point() + 
+    scale_color_manual(values=c("#000000", "#ff0000")) +
+    labs(title="Assigment 3 Question 1, the original data",colour = "Diabetes")
+plot_assigment3_q1
+```
+
+In my opinion, it is easy to classify Diabetes using standard logistic regression model which age and Plasma glucose concentration are 
+the model features. As we can see on the plot, the one who "does not" have Diabetes is more concentrate on the bottom left side of the graph.
+
+
+### 3.2 Train a logistic regression model with y =Diabetes as target, x_1 =Plasma glucoseconcentration and x_2 =Age as fetures. Make a prediction for all observations by using r = 0.5
+
+First, using "glm" function with family = binomial to train the logistic regression model
+
+```{r}
+model_1 <- glm( diabetes ~plasma_glucose_concentration + age , data = diabetes_data_1, family = binomial)
+summary(model_1)$coef
+
+```
+
+According to the coefficient, the probabilistic equation is
+  $$p = \frac{e^{-5.89785793 +  0.03558250plasma_glucose_concentration +0.02450157age)}}{1 + e^{-5.89785793 +0.03558250*plasma_glucose_concentration +0.02450157*age}}$$
+
+Second, Compute training misclassification error
+```{r}
+diabetes_data_1$probabilities <- predict(model_1,diabetes_data_1, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
+diabetes_data_1$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.5, "Yes", "No"))
+missclass=function(X,X1){
+  n=length(X)
+  return(1-sum(diag(table(X,X1)))/n)
+}
+misscalssification_ex2 <- missclass(diabetes_data_1$diabetes,diabetes_data_1$predicted_classes_0.5)
+misscalssification_ex2
+```
+The misscalssification error is 0.2659713
+
+Third, plot the scatter plot showing the predicted values of Diabetes
+```{r}
+plot_assigment3_q2<- ggplot(diabetes_data_1) +
+  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
+  scale_color_manual(values=c("#000000", "#ff0000"))+ 
+  labs(title="Assigment 3 Question 2, r=0.5",colour = "Diabetes")
+plot_assigment3_q2
+```
+In my opinion, the quality of the classification is mediocre, although the overall missclafication rate (26.59713%) is not high, the prediction of older people is not ideal.
+
+### 3.3  a) report the equation of the decision boundary between the two classes of step 2 (b)add a curve showing this boundary to the scatter plot
+
+(a)
+The decision boundary equation of step 2 is 
+ $$plasma glucose concentration = \frac{5.897858}{0.0355825} +\frac{-0.02450157}{0.0355825}age= 165.7516 - 0.6885848age$$
+ (b)
+```{r}
+inverse_logit <- function(threshold){ #To correct the intercept on the plot if the threshold is not 0.5
+  return(-log((1-threshold)/threshold))
+  
+}
+
+decision_boundary <- function(a, b, c, ...){ #function to plot decision boundary
+  slope <- -a / b
+  intercept <- -c / b
+  geom_abline(slope = slope,
+              intercept = intercept, ...)
+  
+}
+
+plot_assigment3_q3 <- ggplot(diabetes_data_1) +
+  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
+  scale_color_manual(values=c("#000000", "#ff0000"))+
+  labs(title="Assigment 3 Question 3, r=0.5, with decision boundary",colour = "Diabetes")+
+  decision_boundary(model_1$coefficients[3],model_1$coefficients[2], 
+                    model_1$coefficients[1]-inverse_logit(0.5))
+  
+   
+  
+  
+plot_assigment3_q3
+```
+
+As the graph shown, The decision boundary catch the data distribution very well in this case.
+
+### 3.3  Make same kind of plots as in step 2 but use thresholds r = 0.2 and r = 0.8
+```{r}
+#===== r=0.2 =====
+  diabetes_data_1$predicted_classes_0.2 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.2, "Yes", "No"))
+ 
+plot_assigment3_q4_r0.2<- ggplot(diabetes_data_1) +
+    geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.2)) +
+    scale_color_manual(values=c("#000000", "#ff0000"))+
+    labs(title="Assigment 3 Question 4, r=0.2, with decision boundary",colour = "Diabetes")+
+    decision_boundary(model_1$coefficients[3],model_1$coefficients[2],
+                    model_1$coefficients[1]-inverse_logit(0.2)) 
+  
+plot_assigment3_q4_r0.2
+```
+
+```{r}
+  #===== r=0.8 =====
+  diabetes_data_1$predicted_classes_0.8 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.8, "Yes", "No"))
+  
+plot_assigment3_q4_r0.8 <- ggplot(diabetes_data_1) +
+    geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.8)) +
+    scale_color_manual(values=c("#000000", "#ff0000"))+
+    labs(title="Assigment 3 Question 4, r=0.8, with decision boundary",colour = "Diabetes")+
+    decision_boundary(model_1$coefficients[3],model_1$coefficients[2],
+                       model_1$coefficients[1]-inverse_logit(0.8))
+plot_assigment3_q4_r0.8
+ 
+```
+
+When r (threshold) value change to 0.8 the prediction of having diabetes will move toward to the top right side, which leaves less people being predict to have Diabetes. For r = 0.2 the oppsite happen. In both cases will result with higher missclasification which means the prediction becamen more inaccurate.
+
+
+
+### 3.5 Perform a basis function expansion trick by computing new features
+```{r}
+  diabetes_data_ex5<- diabetes_data
+ diabetes_data_ex5$z1 <- (diabetes_data_ex5$plasma_glucose_concentration)^4
+ diabetes_data_ex5$z2 <- (diabetes_data_ex5$plasma_glucose_concentration)^3 * diabetes_data_ex5$age
+ diabetes_data_ex5$z3 <- (diabetes_data_ex5$plasma_glucose_concentration)^2 * (diabetes_data_ex5$age)^2
+ diabetes_data_ex5$z4 <- (diabetes_data_ex5$plasma_glucose_concentration)^1 * (diabetes_data_ex5$age)^3
+ diabetes_data_ex5$z5 <- (diabetes_data_ex5$age)^4
+ model_2 <- glm( diabetes ~plasma_glucose_concentration + age + z1 + z2 + z3 + z4
+                +z5 , data = diabetes_data_ex5, family = binomial)
+ diabetes_data_ex5$probabilities <- predict(model_2,diabetes_data_ex5, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
+ diabetes_data_ex5$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data_ex5$probabilities > 0.5 , "Yes", "No"))
+
+ plot_assigment3_q5 <- ggplot(diabetes_data_ex5,aes(x=age, y=plasma_glucose_concentration)) +
+   geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
+   scale_color_manual(values=c("#000000", "#ff0000"))+
+   labs(title="Assigment 5, r=0.5, r=0.8, with decision boundary",colour = "Diabetes")
+
+ plot_assigment3_q5
+ 
+misscalssification_ex5 <- missclass(diabetes_data_ex5$diabetes,diabetes_data_ex5$predicted_classes_0.5)
+misscalssification_ex5
+
+```
+
+According to the missclasification error(0.2464146), this model is by far the best quality one compares to other model in this assignment.  The basis expansion trick change the decision boundary to a "U" shape and it is closer to the original data, unfortunately, due to higher dimension of the feature, the decision is hard to plot on a 2-D graph but we can still observe with the difference of color. 
+To sum up, using the basis expansion improves the prediction accuracy.

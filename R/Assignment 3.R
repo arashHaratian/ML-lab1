@@ -1,5 +1,4 @@
 library(ggplot2)
-library(dplyr)
 
 #=====Import Data=====
 diabetes_data <- read.csv("D:/下載/pima-indians-diabetes.csv")
@@ -13,29 +12,28 @@ colnames(diabetes_data) <- c("number_of_times_pregnant",
                              "age",
                              "diabetes")
 #=====EX.1=====
-diabetes_data$diabetes <- as.factor(ifelse(diabetes_data$diabetes == 1, "Yes", "No"))
+diabetes_data_1 <- diabetes_data
+diabetes_data_1$diabetes <- as.factor(ifelse(diabetes_data_1$diabetes == 1, "Yes", "No"))
 
-# diabetes_data$diabetes <- factor(diabetes_data$diabetes,levels=c("0","1"),labels=c("No","Yes"))
-#,levels=c("0",1),labels=c("No","Yes")
-ggplot(diabetes_data, aes(x=age, y=plasma_glucose_concentration,color=diabetes)) +
+plot_assigment3_q1 <- ggplot(diabetes_data_1, aes(x=age, y=plasma_glucose_concentration,color=diabetes)) +
     geom_point() + 
     scale_color_manual(values=c("#000000", "#ff0000")) +
-    labs(title="Assigment 3 Question 1, the original data")
-
+    labs(title="Assigment 3 Question 1, the original data",colour = "Diabetes")
+plot_assigment3_q
 #=====EX.2=====
 
 
-model <- glm( diabetes ~plasma_glucose_concentration + age , data = diabetes_data, family = binomial)
+model_1 <- glm( diabetes ~plasma_glucose_concentration + age , data = diabetes_data_1, family = binomial)
 
-summary(model)$coef
+summary(model_1)$coef
 #p = exp(-5.89785793 +  0.03558250*plasma_glucose_concentration +0.02450157*age)/ [1 + exp(-5.89785793 +0.03558250*plasma_glucose_concentration +0.02450157*age)]
-diabetes_data$probabilities <- model %>% predict(diabetes_data, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
-diabetes_data$predpicted_classes_0.5 <- as.factor(ifelse(diabetes_data$probabilities > 0.5, "Yes", "No"))
+diabetes_data_1$probabilities <- predict(model_1,diabetes_data_1, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
+diabetes_data_1$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.5, "Yes", "No"))
 
-plot_assigment3_q2<- ggplot(diabetes_data) +
-  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predpicted_classes_0.5)) +
+plot_assigment3_q2<- ggplot(diabetes_data_1) +
+  geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
   scale_color_manual(values=c("#000000", "#ff0000"))+ 
-  labs(title="Assigment 3 Question 2, r=0.5")
+  labs(title="Assigment 3 Question 2, r=0.5",colour = "Diabetes")
 plot_assigment3_q2
 
 
@@ -43,9 +41,8 @@ missclass=function(X,X1){
   n=length(X)
   return(1-sum(diag(table(X,X1)))/n)
 }
-misscalssification <- missclass(diabetes_data$diabetes,diabetes_data$predpicted_classes_0.5)
-1-mean(diabetes_data$predpicted_classes_0.5 == diabetes_data$diabetes)
-cat("The misscalssification is",misscalssification)
+misscalssification <- missclass(diabetes_data_1$diabetes,diabetes_data_1$predicted_classes_0.5)
+misscalssification
 
 
 #====EX.3=====
@@ -55,105 +52,71 @@ inverse_logit <- function(threshold){ #To correct the intercept on the plot
 }
 
 decision_boundary <- function(a, b, c, ...){ #function to plot decision boundary
-  my_slope <- -a / b
-  my_intercept <- -c / b
-  geom_abline(slope = my_slope,
-              intercept = my_intercept, ...)
+  slope <- -a / b
+  intercept <- -c / b
+  geom_abline(slope = slope,
+              intercept = intercept, ...)
+  
 }
 
-plot_assigment3_q3 <- ggplot(diabetes_data) +
+plot_assigment3_q3 <- ggplot(diabetes_data_1) +
   geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
   scale_color_manual(values=c("#000000", "#ff0000"))+
-  labs(title="Assigment 3 Question 3, r=0.5, with decision boundary")+
-  decision_boundary(model$coefficients[3],model$coefficients[2], 
-                    model$coefficients[1]-inverse_logit(0.5)) 
+  labs(title="Assigment 3 Question 3, r=0.5, with decision boundary",colour = "Diabetes")+
+  decision_boundary(model_1$coefficients[3],model_1$coefficients[2], 
+                    model_1$coefficients[1]-inverse_logit(0.5)) 
+  
 plot_assigment3_q3
-
-# plot(1, xlim = c(20, 80),ylim = c(0,200));abline(slope, coef(model)[1])
-plot(diabetes_data$age, diabetes_data$plasma_glucose_concentration, col = diabetes_data$predicted_classes_0.5)
-# abline(coef = coef(model))
-abline(intercept, slope)
 
 
 #====EX.4=====
   #===== r=0.2 =====
-  diabetes_data$predicted_classes_0.2 <- as.factor(ifelse(diabetes_data$probabilities > 0.2, "1", "0"))
+  diabetes_data_1$predicted_classes_0.2 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.2, "Yes", "No"))
  
-plot_assigment3_q4_r0.2<- ggplot(diabetes_data) +
+plot_assigment3_q4_r0.2<- ggplot(diabetes_data_1) +
     geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.2)) +
     scale_color_manual(values=c("#000000", "#ff0000"))+
-    labs(title="Assigment 3 Question 4, r=0.2, with decision boundary")+
-  decision_boundary(model$coefficients[3],model$coefficients[2],
-                    model$coefficients[1]-inverse_logit(0.2)) 
+    labs(title="Assigment 3 Question 4, r=0.2, with decision boundary",colour = "Diabetes")+
+  decision_boundary(model_1$coefficients[3],model_1$coefficients[2],
+                    model_1$coefficients[1]-inverse_logit(0.2)) 
   
 plot_assigment3_q4_r0.2
 
   #===== r=0.8 =====
-  diabetes_data$predicted_classes_0.8 <- as.factor(ifelse(diabetes_data$probabilities > 0.8, "1", "0"))
+  diabetes_data_1$predicted_classes_0.8 <- as.factor(ifelse(diabetes_data_1$probabilities > 0.8, "Yes", "No"))
   
- ggplot(diabetes_data) +
+plot_assigment3_q4_r0.8 <- ggplot(diabetes_data_1) +
     geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.8)) +
     scale_color_manual(values=c("#000000", "#ff0000"))+
-    geom_smooth(aes(x=age, y=plasma_glucose_concentration))+
-    labs(title="Assigment 3 Question 4, r=0.8, with decision boundary")+
-    decision_boundary(model$coefficients[3],model$coefficients[2],
-                       model$coefficients[1]-inverse_logit(0.8))
-
+    labs(title="Assigment 3 Question 4, r=0.8, with decision boundary",colour = "Diabetes")+
+    decision_boundary(model_1$coefficients[3],model_1$coefficients[2],
+                       model_1$coefficients[1]-inverse_logit(0.8))
+plot_assigment3_q4_r0.8
  
 #=====EX.5=====
  diabetes_data_ex5<- diabetes_data
- diabetes_data_ex5$z1 <- (diabetes_data$plasma_glucose_concentration)^4
- diabetes_data_ex5$z2 <- (diabetes_data$plasma_glucose_concentration)^3 * diabetes_data$age
- diabetes_data_ex5$z3 <- (diabetes_data$plasma_glucose_concentration)^2 * (diabetes_data$age)^2
- diabetes_data_ex5$z4 <- (diabetes_data$plasma_glucose_concentration)^1 * (diabetes_data$age)^3
- diabetes_data_ex5$z5 <- (diabetes_data$age)^4
+ diabetes_data_ex5$z1 <- (diabetes_data_ex5$plasma_glucose_concentration)^4
+ diabetes_data_ex5$z2 <- (diabetes_data_ex5$plasma_glucose_concentration)^3 * diabetes_data_ex5$age
+ diabetes_data_ex5$z3 <- (diabetes_data_ex5$plasma_glucose_concentration)^2 * (diabetes_data_ex5$age)^2
+ diabetes_data_ex5$z4 <- (diabetes_data_ex5$plasma_glucose_concentration)^1 * (diabetes_data_ex5$age)^3
+ diabetes_data_ex5$z5 <- (diabetes_data_ex5$age)^4
  model_2 <- glm( diabetes ~plasma_glucose_concentration + age + z1 + z2 + z3 + z4
                 +z5 , data = diabetes_data_ex5, family = binomial)
- diabetes_data_ex5$probabilities <- model_2 %>% predict(diabetes_data_ex5, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
- diabetes_data_ex5$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data_ex5$probabilities > 0.5, "1", "0"))
- 
- slope2 <- coef(model_2)[3]/(-coef(model_2)[2])
- intercept2 <- coef(model_2)[1]/(-coef(model_2)[2])
- 
- ggplot(diabetes_data_ex5,aes(x=age, y=plasma_glucose_concentration)) +
+ diabetes_data_ex5$probabilities <- predict(model_2,diabetes_data_ex5, type = "response")#The type="response" option tells R to output probabilities of the form P(Y = 1|X), as opposed to other information such as the logit.
+ diabetes_data_ex5$predicted_classes_0.5 <- as.factor(ifelse(diabetes_data_ex5$probabilities > 0.5 , "Yes", "No"))
+
+ plot_assigment3_q5 <- ggplot(diabetes_data_ex5,aes(x=age, y=plasma_glucose_concentration)) +
    geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
    scale_color_manual(values=c("#000000", "#ff0000"))+
-   labs(title="Assigment 5, r=0.5")+
-   addline(model_2$coefficients[3],
+   labs(title="Assigment 5, r=0.5, r=0.8, with decision boundary",colour = "Diabetes")+
+  
+   decision_boundary(model_2$coefficients[3],
            model_2$coefficients[2],
-           model_2$coefficients[1]-inverse_logit(0.5), linetype = "solid", col = "blue") 
-
+           model_2$coefficients[1]-inverse_logit(0.5)) 
+ plot_assigment3_q5
  
  
  
- 
- 
-#==== Fixing decision boundary=====
-  ggplot(diabetes_data) +
-    geom_point(aes(x=age, y=plasma_glucose_concentration,color=predicted_classes_0.5)) +
-    scale_color_manual(values=c("#000000", "#ff0000"))+
-    labs(title="Assigment 3 Question 3, r=0.5, with decision boundary")
-
- 
- inverse_logit <- function(threshold){ 
-   return(-log((1-threshold)/threshold))
-   
- } # to get the correction of 
- addline <- function(a, b, c, ...){
-   my_slope <- -a / b
-   my_intercept <- -c / b
-   geom_abline(slope = my_slope,
-               intercept = my_intercept, ...)
- }
- 
- p_data <- ggplot(data = diabetes_data) +
-   geom_point(mapping =
-                aes(x = age,
-                    y = plasma_glucose_concentration,
-                    color = predicted_classes_0.2)) +
-   theme_bw()
- p_data
- p_data + 
-   addline(model$coefficients[3],
-           model$coefficients[2],
-           model$coefficients[1]-inverse_logit(0.2), linetype = "solid", col = "blue") 
+ #decision boundary for ex5
+ (9.279037e+00/3.771611e-02)+(-1.453076e-01/3.771611e-02)x+(- 1.266002e-08/3.771611e-02)x^2+(1.759946e-07 /3.771611e-02)x^3+
+   (-8.423530e-07/3.771611e-02)x^4+(1.681846e-06/3.771611e-02)x^5+(-8.045461e-07/3.771611e-02)x^6
