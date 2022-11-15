@@ -114,9 +114,4 @@ plot_assigment3_q4_r0.8
            model_2$coefficients[2],
            model_2$coefficients[1]-inverse_logit(0.5)) 
  plot_assigment3_q5
- 
- 
- 
- #decision boundary for ex5
- (9.279037e+00/3.771611e-02)+(-1.453076e-01/3.771611e-02)x+(- 1.266002e-08/3.771611e-02)x^2+(1.759946e-07 /3.771611e-02)x^3+
-   (-8.423530e-07/3.771611e-02)x^4+(1.681846e-06/3.771611e-02)x^5+(-8.045461e-07/3.771611e-02)x^6
+
