@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Attaching Packages
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(kknn)
 ```
@@ -25,6 +25,7 @@ library(kknn)
 
 ### 1) Importing And Spliting The Data
 
+First we read the data and split it to three parts (training, validation and test sets) using the code from the lecture slides:
 
 ```{r}
 optdigits <- read.csv("./dataset/optdigits.csv", header = FALSE)
@@ -54,8 +55,7 @@ test_data <- optdigits[test_idx, ]
 knn_model_train <- kknn(y~., train = train_data, test = train_data, k = 30, kernel = "rectangular")
 g_hat_train <-knn_model_train$fitted.values
 cm_train <- table(train_data$y, g_hat_train)
-cat("\nConfusion matrix for train dataset\n\n")
-print(cm_train)
+knitr::kable(cm_train, caption = "Confusion matrix for 30-nn on train dataset")
 error_train <- 1 - (sum(diag(cm_train)) / length(g_hat_train))
 
 ```
@@ -64,8 +64,7 @@ error_train <- 1 - (sum(diag(cm_train)) / length(g_hat_train))
 knn_model_test <- kknn(y~., train = train_data, test = test_data, k = 30, kernel = "rectangular")
 g_hat_test <- knn_model_test$fitted.values
 cm_test <- table(test_data$y, g_hat_test)
-cat("\nConfusion matrix for test dataset\n\n")
-print(cm_test)
+knitr::kable(cm_test, caption = "Confusion matrix for 30-nn on test dataset")
 error_test <- 1 - (sum(diag(cm_test)) / length(g_hat_test))
 ```
 
@@ -75,12 +74,7 @@ On the other hand, class `4` has the most number of misclassifications (15 in ov
 
 Only one `0` is misclassified in test data while there is no misclassification for class `0` in train dataset.
 
-
-
 The misclassification error for the train dataset is `r error_train * 100` percent whereas the misclassification error for the test dataset is `r error_test * 100` percent`. The model is biased on the training dataset as it has a very low error rate on train dataset compare to test dataset.
-
-
-
 
 
 ### 3) Plotting 5 Different Observations
@@ -102,8 +96,9 @@ for(i in 1:5){
   heatmap(fig_matrix, Colv = NA, Rowv = NA, col = paste0("gray", 1:99), main = fig_title) 
 }
 
-
 ```
+
+
 The last two plots are clearly resemble number 8, but the first three plots are barely similar to an 8. These first two plots are hard to classify visually since the top and the bottom circles of the 8 figure are blurred out.
 
 ### 4) Best Value of K
@@ -140,8 +135,7 @@ best_k <- which.min(t(errors)[,2])
 knn_model_test <- kknn(y~., train = train_data, test = test_data, k = best_k, kernel = "rectangular")
 g_hat_test <- knn_model_test$fitted.values
 cm_test <- table(test_data$y, g_hat_test)
-cat("\nConfusion matrix for test dataset\n\n")
-print(cm_test)
+knitr::kable(cm_test, caption = "Confusion matrix for 30-nn on test dataset")
 error_test <- 1 - (sum(diag(cm_test)) / length(g_hat_test))
 ```
 
@@ -155,7 +149,7 @@ First we define the cross entropy as a function in R:
 ```{r}
 cross_entropy <- function(y, prob){
   one_hot <- model.matrix(~ 0 + y)
-  result <- sum(-one_hot * log(prob +  1e-15)) 
+  result <- sum(- one_hot * log(prob +  1e-15)) 
   return(result / length(y))
 }
 ```
@@ -185,8 +179,194 @@ legend(25, 1, legend=c("train", "validation"),
        col=c("blue", "red"), lty=1, cex=0.8)
 ```
 
+The best value of k is `r best_k` if we use cross-entropy as computing the error for validation dataset. The reason that cross entropy is more useful for datasets with multinomial distribution for the response is that we use probabilities (instead of final labels) to study the quality of the model.
+
+---
 ---
 
 ## Assignment 2
 
+### 1
+
+```{r}
+parkinsons <- read.csv("./dataset/parkinsons.csv")
+
+parkinsons <- parkinsons %>% select(starts_with(c("Jitter", "Shimmer")), "NHR", "HNR", "RPDE", "DFA", "PPE", "motor_UPDRS")
+
+n <- nrow(parkinsons)
+set.seed(12345) 
+id <- sample(1:n, floor(n*0.6)) 
+train <- parkinsons[id, ] 
+test <- parkinsons[-id, ] 
+
+scale_model <- caret::preProcess(train)
+train <- predict(scale_model, train)
+test <- predict(scale_model, test)
+```
+
+### 2
+
+```{r}
+lm_model <- lm(motor_UPDRS~. -1, train)
+summary(lm_model)
+y_hat <- lm_model$fitted.values
+mse <- sum((train$motor_UPDRS - y_hat)^2)/ nrow(train)
+y_hat <- predict(lm_model, test)
+mse <- sum((test$motor_UPDRS - y_hat)^2)/ nrow(test)
+```
+
+
+### 3
+
+```{r}
+log_likelihood <- function(params, data) {
+  n <- nrow(data)
+  theta <- matrix(params[1:16], ncol = 1)
+  sigma <- params[17]
+  x <- as.matrix(data[-17])
+  y <- data[17]
+  temp <- sum(((x %*% theta) - y)^2)
+  result <- -((n/2) * log(2* pi * sigma^2)) - ( (1/(2*sigma^2)) * as.vector(temp))
+  return(-result)
+}
+# optim(c(rep(0, 16), 1), method = "BFGS", log_likelihood, data = train)
+# coef(lm_model) %>% round(5)
+```
+
+```{r}
+ridge_likelihood <- function(params, lambda, data){
+  n <- nrow(data)
+  theta <- matrix(params[1:16], ncol = 1)
+  sigma <- params <- params[17]
+  x <- data[-17]
+  y <- data[17]
+  temp <- sum(((as.matrix(x) %*% theta) - y)^2)
+  result <- -((n/2) * log(2* pi * sigma^2)) - ( (1/(2*sigma^2)) * as.vector(temp)) - lambda * sum(theta^2)
+  return(-result)
+}
+# ridge_likelihood(rep(0, 21), 10, 10, train)
+# ridge_likelihood(coef(lm_model), 10, 10, train)
+```
+
+
+```{r}
+ridge_opt <- function(lambda, data){
+  init_points <- c(rep(0, 16), 1)
+  optim(init_points, ridge_likelihood, method = "BFGS", data = data, lambda = lambda)
+}
+# ridge_opt(10, train)
+# MASS::lm.ridge(motor_UPDRS~. -1, train, lambda = 10) %>% coef() %>% round(digits = 5)
+```
+
+```{r}
+df_ridge <- function(lambda, data){
+  x <- as.matrix(data[-17])
+  y <- data[17]
+  hat_matrix <- x %*% solve(t(x) %*% x + diag(lambda, ncol(x))) %*% t(x)
+  return(sum(diag(hat_matrix)))
+}
+
+# df_ridge(10, train)
+# df_ridge(1, train)
+```
+### 4
+
+```{r}
+theta_1 <- (ridge_opt(1, train))$par
+theta_100 <- (ridge_opt(100, train))$par
+theta_1000 <- (ridge_opt(1000, train))$par
+
+y_hat_1 <- theta_1[1:16] %*% t(as.matrix(train[-17]))
+sum((y_hat_1 - train[17]) ^ 2) / nrow(train)
+y_hat_100 <- theta_100[1:16] %*% t(as.matrix(train[-17]))
+sum((y_hat_100 - train[17]) ^ 2) / nrow(train)
+y_hat_1000 <- theta_1000[1:16] %*% t(as.matrix(train[-17]))
+sum((y_hat_1000 - train[17]) ^ 2) / nrow(train)
+
+print("test:")
+
+y_hat_1 <- theta_1[1:16] %*% t(as.matrix(test[-17]))
+sum((y_hat_1 - test[17]) ^ 2) / nrow(test)
+y_hat_100 <- theta_100[1:16] %*% t(as.matrix(test[-17]))
+sum((y_hat_100 - test[17]) ^ 2) / nrow(test)
+y_hat_1000 <- theta_1000[1:16] %*% t(as.matrix(test[-17]))
+sum((y_hat_1000 - test[17]) ^ 2) / nrow(test)
+
+
+df_ridge(1, train)
+df_ridge(100, train)
+df_ridge(1000, train)
+```
+
+
+---
+
 ## Assignment 3
+
+### 1
+
+```{r}
+dataset <- read.csv("./dataset/pima-indians-diabetes.csv", header = FALSE)
+colnames(dataset)[c(2, 8, 9)] <- c("plasma_glucose", "age", "y")
+dataset$y <- factor(dataset$y)
+ggplot(dataset, aes(age, plasma_glucose, color = y)) + geom_point()
+```
+
+
+```{r}
+glm_model <- glm(y~age + plasma_glucose, family = "binomial", data = dataset)
+summary(glm_model)
+dataset$g_hat <- ifelse(glm_model$fitted.values > 0.5, 1, 0) %>% as.factor()
+ggplot(dataset, aes(age, plasma_glucose, color = g_hat)) + geom_point()
+
+cm <- table(dataset$y, dataset$g_hat)
+1- (sum(diag(cm)) / nrow(dataset))
+```
+
+### 2
+
+```{r}
+
+slope <- coef(glm_model)[2] / -coef(glm_model)[3]
+intercept <- coef(glm_model)[1] / -coef(glm_model)[3]
+dataset$g_hat <- ifelse(glm_model$fitted.values > 0.5, 1, 0) %>% as.factor()
+ggplot(dataset, aes(age, plasma_glucose, color = g_hat)) + geom_point()
+
+cm <- table(dataset$y, dataset$g_hat)
+1- (sum(diag(cm)) / nrow(dataset))
+ggplot(dataset, aes(age, plasma_glucose, color = y)) + geom_point()+
+  geom_abline(aes(intercept = intercept, slope = slope))
+```
+
+
+### 3
+```{r}
+dataset$g_hat <- ifelse(glm_model$fitted.values > 0.2, 1, 0) %>% as.factor()
+ggplot(dataset, aes(age, plasma_glucose, color = g_hat)) + geom_point()
+
+cm <- table(dataset$y, dataset$g_hat)
+1- (sum(diag(cm)) / nrow(dataset))
+
+dataset$g_hat <- ifelse(glm_model$fitted.values > 0.8, 1, 0) %>% as.factor()
+ggplot(dataset, aes(age, plasma_glucose, color = g_hat)) + geom_point()
+
+cm <- table(dataset$y, dataset$g_hat)
+1- (sum(diag(cm)) / nrow(dataset))
+```
+
+
+
+### 4
+
+```{r}
+dataset <- dataset %>% 
+  mutate(z1= plasma_glucose^4, z2 = plasma_glucose^3 * age, z3 = plasma_glucose^2 * age^2, z4 = plasma_glucose * age^3, z4 = age^4)
+
+glm_model <- glm(y~age + plasma_glucose + z1 + z2 + z3 + z4, family = "binomial", data = dataset)
+summary(glm_model)
+dataset$g_hat <- ifelse(glm_model$fitted.values > 0.5, 1, 0) %>% as.factor()
+ggplot(dataset, aes(age, plasma_glucose, color = g_hat)) + geom_point()
+
+cm <- table(dataset$y, dataset$g_hat)
+1- (sum(diag(cm)) / nrow(dataset))
+```
