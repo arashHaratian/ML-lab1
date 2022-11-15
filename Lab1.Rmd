@@ -457,7 +457,6 @@ legend(25, 1, legend=c("train", "validation"),
 \newpage
 ```{r,eval=FALSE,echo=TRUE}
 #=====Assignment 3=====   
-#=====Assignment 3=====  
 
 #=====Set Up=====
   diabetes_data <- read.csv("D:/pima-indians-diabetes.csv", header = FALSE)
