@@ -1,7 +1,7 @@
 library(ggplot2)
 
 #=====Import Data=====
-diabetes_data <- read.csv("D:/下載/pima-indians-diabetes.csv")
+diabetes_data <- read.csv("D:/下載/pima-indians-diabetes.csv", header = FALSE)
 colnames(diabetes_data) <- c("number_of_times_pregnant",
                              "plasma_glucose_concentration", 
                              "blood_pressure",
