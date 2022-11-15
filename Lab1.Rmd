@@ -155,7 +155,7 @@ ce_lowest <- t(results)[best_k, 2]
 plot(t(results)[, 1], type = "b", col = "blue",
      ylim = c(0, 1),
      xlab = "Vlaue of K",
-     ylab = "Misclassification Error")
+     ylab = "Cross Entropy")
 points(t(results)[, 2], type = "b", col = "red")
 abline(v = 6, h = ce_lowest, lty = 2)
 legend(25, 1, legend=c("train", "validation"),
